@@ -63,7 +63,7 @@ const startShift = () => {
   document.body.removeChild(downloadLink);
 
   URL.revokeObjectURL(reportURL);
-  saveData();
+  
 
   alert(reportContent.join('\n'));
   // Clear the table
@@ -135,7 +135,6 @@ const addPayment = () => {
   payments.push(payment);
   updateTable();
   updateTotals();
-  saveData();
 };
 
 const updateTable = () => {
