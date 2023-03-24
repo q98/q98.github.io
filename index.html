@@ -11,12 +11,14 @@
     $(document).ready(function () {
       let payments = [];
       let shiftStartTime = null;
+      loadData();
 
 const startShift = () => {
   $('#start-shift').hide();
   $('#end-shift').show();
   shiftStartTime = new Date();
         setInterval(updateElapsedTime, 1000);
+        saveData();
 };
 
       const endShift = () => {
@@ -61,6 +63,7 @@ const startShift = () => {
   document.body.removeChild(downloadLink);
 
   URL.revokeObjectURL(reportURL);
+  saveData();
 
   alert(reportContent.join('\n'));
   // Clear the table
@@ -89,6 +92,33 @@ const startShift = () => {
         const seconds = elapsedTime % 60;
         $('#elapsed-time').text(`${hours}h ${minutes}m ${seconds}s`);
       };
+    
+      const saveData = () => {
+          localStorage.setItem('payments', JSON.stringify(payments));
+            localStorage.setItem('shiftStartTime', JSON.stringify(shiftStartTime));
+            };
+            const loadData = () => {
+                const storedPayments = localStorage.getItem('payments');
+                  const storedStartTime = localStorage.getItem('shiftStartTime');
+
+                    if (storedPayments) {
+                        payments = JSON.parse(storedPayments);
+                            updateTable();
+                                updateTotals();
+                                  }
+
+                                    if (storedStartTime) {
+                                        shiftStartTime = new Date(JSON.parse(storedStartTime));
+                                            updateElapsedTime();
+                                                setInterval(updateElapsedTime, 1000);
+                                                    $('#start-shift').hide();
+                                                        $('#end-shift').show();
+                                                          }
+                                                          };
+
+            
+
+      
 
 const addPayment = () => {
   const paymentMethod = $('#payment-method').val();
@@ -105,6 +135,7 @@ const addPayment = () => {
   payments.push(payment);
   updateTable();
   updateTotals();
+  saveData();
 };
 
 const updateTable = () => {
