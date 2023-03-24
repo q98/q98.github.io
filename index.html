@@ -1,1 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shift Tracker</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    $(document).ready(function () {
+      let payments = [];
+      let shiftStartTime = null;
+
+const startShift = () => {
+  $('#start-shift').hide();
+  $('#end-shift').show();
+  shiftStartTime = new Date();
+        setInterval(updateElapsedTime, 1000);
+};
+
+      const endShift = () => {
+  const cashPayments = payments.filter(p => p.method === 'cash');
+  const creditPayments = payments.filter(p => p.method === 'credit');
+  const prepayPayments = payments.filter(p => p.method === 'prepay');
+
+  const cashTotal = cashPayments.reduce((sum, p) => sum + p.amount, 0);
+  const creditTotal = creditPayments.reduce((sum, p) => sum + p.amount, 0);
+  const prepayTotal = prepayPayments.reduce((sum, p) => sum + p.amount, 0);
+
+  const payIn = parseFloat($('#total-pay-in').text());
+  const profit = parseFloat($('#total-profit').text());
+
+  const dateStr = new Date().toISOString().slice(0, 10);
+
+  const reportContent = [
+    `Date: ${new Date().toLocaleDateString()}`,
+    '',
+    `Cash Payments: ${cashPayments.length} (Total: $${cashTotal.toFixed(2)})`,
+    `Credit Payments: ${creditPayments.length} (Total: $${creditTotal.toFixed(2)})`,
+    `Prepay Payments: ${prepayPayments.length} (Total: $${prepayTotal.toFixed(2)})`,
+    `PAY-IN: $${payIn.toFixed(2)}`,
+    `Total Profit: $${profit.toFixed(2)}`,
+    '',
+    'Payments:',
+  ];
+
+  payments.forEach(payment => {
+    reportContent.push(`[${payment.timestamp.toLocaleString()}] ${payment.name} - ${payment.method} - $${payment.amount.toFixed(2)}`);
+  });
+
+  const reportBlob = new Blob([reportContent.join('\n')], { type: 'text/plain' });
+  const reportURL = URL.createObjectURL(reportBlob);
+
+  const downloadLink = document.createElement('a');
+  downloadLink.href = reportURL;
+  downloadLink.download = `shift_report_${dateStr}.txt`;
+  downloadLink.style.display = 'none';
+  document.body.appendChild(downloadLink);
+  downloadLink.click();
+  document.body.removeChild(downloadLink);
+
+  URL.revokeObjectURL(reportURL);
+
+  alert(reportContent.join('\n'));
+  // Clear the table
+  payments = [];
+  updateTable();
+
+  // Reset the elapsed time
+  shiftStartTime = null;
+  $('#elapsed-time').text('0h 0m 0s');
+
+  // Reset totals
+  updateTotals();
+
+  // Show and hide the appropriate buttons
+  $('#start-shift').show();
+  $('#end-shift').hide();
+  };
+
+
+
+      const updateElapsedTime = () => {
+        const now = new Date();
+        const elapsedTime = Math.floor((now - shiftStartTime) / 1000);
+        const hours = Math.floor(elapsedTime / 3600);
+        const minutes = Math.floor((elapsedTime % 3600) / 60);
+        const seconds = elapsedTime % 60;
+        $('#elapsed-time').text(`${hours}h ${minutes}m ${seconds}s`);
+      };
+
+const addPayment = () => {
+  const paymentMethod = $('#payment-method').val();
+  const amount = paymentMethod === 'prepay' ? parseFloat($('#mileage').val()) * 1.50 + 4 : parseFloat($('#amount').val());
+  const mileage = paymentMethod === 'prepay' ? parseInt($('#mileage').val()) : 0;
+  const name = $('#name').val();
+  const payment = {
+    timestamp: new Date(),
+    method: paymentMethod,
+    amount: amount,
+    mileage: mileage,
+    name: name,
+  };
+  payments.push(payment);
+  updateTable();
+  updateTotals();
+};
+
+const updateTable = () => {
+  const tableBody = $('#payments-table tbody');
+  tableBody.empty();
+  payments.forEach(payment => {
+    const row = $('<tr>');
+    row.append(`<td>${payment.timestamp.toLocaleString()}</td>`);
+    row.append(`<td>${payment.name}</td>`);
+    row.append(`<td>${payment.method}</td>`);
+    row.append(`<td>${payment.amount.toFixed(2)}</td>`);
+    if (payment.method === 'prepay') {
+      row.append(`<td>${payment.mileage}</td>`);
+    } else {
+      row.append('<td>-</td>');
+    }
+    tableBody.append(row);
+  });
+};
+
+
+      const updateTotals = () => {
+  const totalPayments = payments.reduce((sum, payment) => sum + payment.amount, 0);
+  const gasTotal = totalPayments * 0.05;
+  const creditTotal = payments.filter(p => p.method === 'credit').reduce((sum, p) => sum + (p.amount * 0.97), 0);
+  const prepayTotal = payments.filter(p => p.method === 'prepay').reduce((sum, p) => sum + (p.amount * 0.97), 0);
+  const cashTotal = payments.filter(p => p.method === 'cash').reduce((sum, p) => sum + p.amount, 0);
+  const halfTotalPayments = totalPayments / 2;
+  const additionalAmount = totalPayments >= 100 && totalPayments <= 400 ? 8.5 : 0;
+  const payIn = halfTotalPayments + additionalAmount - gasTotal - creditTotal - prepayTotal;
+  
+  let profit;
+  if (payIn >= 0) {
+    profit = cashTotal - payIn;
+  } else {
+    profit = cashTotal + Math.abs(payIn);
+  }
+
+  $('#total-payments').text(totalPayments.toFixed(2));
+  $('#total-pay-in').text(payIn.toFixed(2));
+  $('#total-profit').text(profit.toFixed(2));
+
+  console.log(`creditTotal: ${creditTotal.toFixed(2)}, prepayTotal: ${prepayTotal.toFixed(2)}, PAY-IN: ${payIn.toFixed(2)}, profit: ${profit.toFixed(2)}`);
+};
+
+
+$('#start-shift').on('click', startShift);
+      $('#add-payment-btn').on('click', addPayment);
+      $('#end-shift').on('click', endShift);
+      $('#payment-method').on('change', (e) => {
+        const paymentMethod = e.target.value;
+        if (paymentMethod === 'prepay') {
+          $('#mileage-group').show();
+          $('#amount-group').hide();
+        } else {
+          $('#mileage-group').hide();
+          $('#amount-group').show();
+        }
+      });
+    });
+  </script>
+  <style>
+    .header-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-info">
+      <div>
+        <button id="start-shift" class="btn btn-success">Start Shift</button>
+        <button id="end-shift" class="btn btn-danger" style="display: none;">End Shift</button>
+
+        <span>Elapsed Time: <span id="elapsed-time">0h 0m 0s</span></span>
+      </div>
+      <div>Total PAY-IN: <span id="total-pay-in">0.00</span></div>
+      <div>Total Profit: <span id="total-profit">0.00</span></div>
+    </div>
+        <div class="form-row">
+      <div class="col">
+        <label for="payment-method">Payment Method</label>
+        <select id="payment-method" class="form-control">
+          <option value="cash">Cash</option>
+          <option value="credit">Credit</option>
+          <option value="prepay">Prepay</option>
+        </select>
+      </div>
+      <div class="col">
+        <label for="name">Name</label>
+        <input type="text" id="name" class="form-control" step="0.01" min="0">
+      </div>
+      <div class="col" id="amount-group">
+        <label for="amount">Amount</label>
+        <input type="number" id="amount" class="form-control" step="0.01" min="0">
+      </div>
+      
+      <div class="col" id="mileage-group" style="display: none;">
+        <label for="mileage">Mileage</label>
+        <input type="number" id="mileage" class="form-control" step="1" min="0">
+      </div>
+      <div class="col">
+        <button id="add-payment-btn" class="btn btn-success" style="margin-top: 32px;">Add Payment</button>
+      </div>
+    </div>
+    <table id="payments-table" class="table mt-5">
+      <thead>
+        <tr>
+          <th>Timestamp</th>
+          <th>Name</th>
+          <th>Payment Method</th>
+          <th>Amount</th>
+          <th>Mileage (Prepay)</th>
+        </tr>
+      </thead>
+      <tbody>
+      </tbody>
+    </table>
+  </div>
+</body>
+</html>
 
